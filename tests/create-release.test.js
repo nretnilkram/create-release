@@ -40,8 +40,10 @@ describe('Create Release', () => {
     });
 
     const octokit = {
-      repos: {
-        createRelease
+      rest: {
+        repos: {
+          createRelease
+        }
       }
     };
 
