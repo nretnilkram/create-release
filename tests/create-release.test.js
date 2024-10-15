@@ -1,10 +1,10 @@
 const core = require('@actions/core');
-const { GitHub, context } = require('@actions/github');
+const { octokit } = require('@actions/github');
 const fs = require('fs');
 
 jest.mock('@actions/core');
 jest.mock('@actions/github', () => ({
-  GitHub: jest.fn(),
+  octokit: jest.fn(),
   context: {
     repo: {
       owner: 'owner',
@@ -43,7 +43,7 @@ describe('Create Release', () => {
       }
     };
 
-    GitHub.mockImplementation(() => github);
+    octokit.mockImplementation(() => github);
   });
 
   test('Create release endpoint is called', async () => {
