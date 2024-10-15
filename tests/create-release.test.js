@@ -1,14 +1,27 @@
-jest.mock('@actions/core');
-jest.mock('@actions/github');
-jest.mock('fs', () => ({
-  promises: {
-    access: jest.fn()
-  }
-}));
-
 const core = require('@actions/core');
 const { GitHub, context } = require('@actions/github');
 const fs = require('fs');
+
+jest.mock('@actions/core');
+jest.mock('@actions/github', () => ({
+  GitHub: jest.fn(),
+  context: {
+    repo: {
+      owner: 'owner',
+      repo: 'repo'
+    },
+    sha: 'sha'
+  }
+}));
+jest.mock('fs', () => ({
+  promises: {
+    access: jest.fn()
+  },
+  constants: {
+    O_RDONLY: 0
+  }
+}));
+
 const run = require('../src/create-release.js');
 
 /* eslint-disable no-undef */
@@ -23,12 +36,6 @@ describe('Create Release', () => {
         upload_url: 'uploadUrl'
       }
     });
-
-    context.repo = {
-      owner: 'owner',
-      repo: 'repo'
-    };
-    context.sha = 'sha';
 
     const github = {
       repos: {
