@@ -29917,7 +29917,7 @@ const fs = __nccwpck_require__(9896);
 async function run() {
   try {
     // Get authenticated GitHub client (Ocktokit): https://github.com/actions/toolkit/tree/master/packages/github#usage
-    const octokit = new github.GitHub(process.env.GITHUB_TOKEN);
+    const octokit = new github.getOctokit(process.env.GITHUB_TOKEN);
 
     // Get owner and repo from context of payload that triggered the action
     const { owner: currentOwner, repo: currentRepo } = context.repo;
