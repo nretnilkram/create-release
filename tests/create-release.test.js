@@ -1,10 +1,20 @@
-const core = require('@actions/core');
-const { getOctokit } = require('@actions/github');
-const fs = require('fs');
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 
-jest.mock('@actions/core');
-jest.mock('@actions/github', () => ({
-  getOctokit: jest.fn(),
+const mockGetInput = jest.fn();
+const mockSetOutput = jest.fn();
+const mockSetFailed = jest.fn();
+const mockCreateRelease = jest.fn();
+const mockGetOctokit = jest.fn();
+const mockReadFileSync = jest.fn();
+
+jest.unstable_mockModule('@actions/core', () => ({
+  getInput: mockGetInput,
+  setOutput: mockSetOutput,
+  setFailed: mockSetFailed
+}));
+
+jest.unstable_mockModule('@actions/github', () => ({
+  getOctokit: mockGetOctokit,
   context: {
     repo: {
       owner: 'owner',
@@ -13,44 +23,36 @@ jest.mock('@actions/github', () => ({
     sha: 'sha'
   }
 }));
-jest.mock('fs', () => ({
-  promises: {
-    access: jest.fn()
-  },
-  constants: {
-    O_RDONLY: 0
-  }
+
+jest.unstable_mockModule('node:fs', () => ({
+  readFileSync: mockReadFileSync,
+  promises: { access: jest.fn() },
+  constants: { O_RDONLY: 0 }
 }));
 
-const run = require('../src/create-release.js');
+const { default: run } = await import('../src/create-release.js');
 
-/* eslint-disable no-undef */
 describe('Create Release', () => {
-  let createRelease;
-
   beforeEach(() => {
-    createRelease = jest.fn().mockReturnValueOnce({
+    jest.resetAllMocks();
+    mockCreateRelease.mockReturnValueOnce({
       data: {
         id: 'releaseId',
         html_url: 'htmlUrl',
         upload_url: 'uploadUrl'
       }
     });
-
-    const octokit = {
+    mockGetOctokit.mockImplementation(() => ({
       rest: {
         repos: {
-          createRelease
+          createRelease: mockCreateRelease
         }
       }
-    };
-
-    getOctokit.mockImplementation(() => octokit);
+    }));
   });
 
   test('Create release endpoint is called', async () => {
-    core.getInput = jest
-      .fn()
+    mockGetInput
       .mockReturnValueOnce('refs/tags/v1.0.0')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
@@ -59,7 +61,7 @@ describe('Create Release', () => {
 
     await run();
 
-    expect(createRelease).toHaveBeenCalledWith({
+    expect(mockCreateRelease).toHaveBeenCalledWith({
       owner: 'owner',
       repo: 'repo',
       tag_name: 'v1.0.0',
@@ -72,8 +74,7 @@ describe('Create Release', () => {
   });
 
   test('Draft release is created', async () => {
-    core.getInput = jest
-      .fn()
+    mockGetInput
       .mockReturnValueOnce('refs/tags/v1.0.0')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
@@ -82,7 +83,7 @@ describe('Create Release', () => {
 
     await run();
 
-    expect(createRelease).toHaveBeenCalledWith({
+    expect(mockCreateRelease).toHaveBeenCalledWith({
       owner: 'owner',
       repo: 'repo',
       tag_name: 'v1.0.0',
@@ -95,8 +96,7 @@ describe('Create Release', () => {
   });
 
   test('Pre-release release is created', async () => {
-    core.getInput = jest
-      .fn()
+    mockGetInput
       .mockReturnValueOnce('refs/tags/v1.0.0')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
@@ -105,7 +105,7 @@ describe('Create Release', () => {
 
     await run();
 
-    expect(createRelease).toHaveBeenCalledWith({
+    expect(mockCreateRelease).toHaveBeenCalledWith({
       owner: 'owner',
       repo: 'repo',
       tag_name: 'v1.0.0',
@@ -118,17 +118,16 @@ describe('Create Release', () => {
   });
 
   test('Release with empty body is created', async () => {
-    core.getInput = jest
-      .fn()
+    mockGetInput
       .mockReturnValueOnce('refs/tags/v1.0.0')
       .mockReturnValueOnce('myRelease')
-      .mockReturnValueOnce('') // <-- The default value for body in action.yml
+      .mockReturnValueOnce('') // default value for body in action.yml
       .mockReturnValueOnce('false')
       .mockReturnValueOnce('false');
 
     await run();
 
-    expect(createRelease).toHaveBeenCalledWith({
+    expect(mockCreateRelease).toHaveBeenCalledWith({
       owner: 'owner',
       repo: 'repo',
       tag_name: 'v1.0.0',
@@ -141,21 +140,20 @@ describe('Create Release', () => {
   });
 
   test('Release body based on file', async () => {
-    core.getInput = jest
-      .fn()
+    mockGetInput
       .mockReturnValueOnce('refs/tags/v1.0.0')
       .mockReturnValueOnce('myRelease')
-      .mockReturnValueOnce('') // <-- The default value for body in action.yml
+      .mockReturnValueOnce('') // default value for body in action.yml
       .mockReturnValueOnce('false')
       .mockReturnValueOnce('false')
       .mockReturnValueOnce(null)
       .mockReturnValueOnce('notes.md');
 
-    fs.readFileSync = jest.fn().mockReturnValueOnce('# this is a release\nThe markdown is strong in this one.');
+    mockReadFileSync.mockReturnValueOnce('# this is a release\nThe markdown is strong in this one.');
 
     await run();
 
-    expect(createRelease).toHaveBeenCalledWith({
+    expect(mockCreateRelease).toHaveBeenCalledWith({
       owner: 'owner',
       repo: 'repo',
       tag_name: 'v1.0.0',
@@ -168,45 +166,37 @@ describe('Create Release', () => {
   });
 
   test('Outputs are set', async () => {
-    core.getInput = jest
-      .fn()
+    mockGetInput
       .mockReturnValueOnce('refs/tags/v1.0.0')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
       .mockReturnValueOnce('false')
       .mockReturnValueOnce('false');
 
-    core.setOutput = jest.fn();
-
     await run();
 
-    expect(core.setOutput).toHaveBeenNthCalledWith(1, 'id', 'releaseId');
-    expect(core.setOutput).toHaveBeenNthCalledWith(2, 'html_url', 'htmlUrl');
-    expect(core.setOutput).toHaveBeenNthCalledWith(3, 'upload_url', 'uploadUrl');
+    expect(mockSetOutput).toHaveBeenNthCalledWith(1, 'id', 'releaseId');
+    expect(mockSetOutput).toHaveBeenNthCalledWith(2, 'html_url', 'htmlUrl');
+    expect(mockSetOutput).toHaveBeenNthCalledWith(3, 'upload_url', 'uploadUrl');
   });
 
   test('Action fails elegantly', async () => {
-    core.getInput = jest
-      .fn()
+    mockGetInput
       .mockReturnValueOnce('refs/tags/v1.0.0')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
       .mockReturnValueOnce('false')
       .mockReturnValueOnce('false');
 
-    createRelease.mockRestore();
-    createRelease.mockImplementation(() => {
+    mockCreateRelease.mockReset();
+    mockCreateRelease.mockImplementation(() => {
       throw new Error('Error creating release');
     });
 
-    core.setOutput = jest.fn();
-
-    core.setFailed = jest.fn();
-
     await run();
 
-    expect(createRelease).toHaveBeenCalled();
-    expect(core.setFailed).toHaveBeenCalledWith('Error creating release');
-    expect(core.setOutput).toHaveBeenCalledTimes(0);
+    expect(mockCreateRelease).toHaveBeenCalled();
+    expect(mockSetFailed).toHaveBeenCalledWith('Error creating release');
+    expect(mockSetOutput).toHaveBeenCalledTimes(0);
   });
 });

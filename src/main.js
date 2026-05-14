@@ -1,5 +1,3 @@
-const run = require('./create-release');
+import run from './create-release.js';
 
-if (require.main === module) {
-  run();
-}
+run();
